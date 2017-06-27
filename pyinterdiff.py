@@ -4,8 +4,7 @@ import fileinput, sys
 from collections import OrderedDict as odict
 from fraction_custom import NonreducedFraction
 
-input_lines = fileinput.input(sys.argv[1:])
-DEBUG = 0
+DEBUG_VERBOSE = 0
 
 def parseDiff(l_diff):
 	res = odict()
@@ -15,9 +14,10 @@ def parseDiff(l_diff):
 	i = 0
 	for line in l_diff:
 		if __debug__ == False:
-			buf = ""
-			buf += "line %d: " % i
-			buf += "isFileStart = %d\n" % (line.startswith("diff --git"))
+			if DEBUG_VERBOSE:
+				buf = ""
+				buf += "line %d: " % i
+				buf += "isFileStart = %d\n" % (line.startswith("diff --git"))
 
 		if line.startswith("diff --git"):
 			if hunk:
@@ -31,7 +31,8 @@ def parseDiff(l_diff):
 			fileName = line.split(" ")[2][2:]
 
 			if __debug__ == False:
-				i += 1
+				if DEBUG_VERBOSE:
+					i += 1
 			else:
 				continue
 
@@ -39,8 +40,9 @@ def parseDiff(l_diff):
 			continue
 
 		if __debug__ == False:
-			buf += "isHunkStart = %d\n" % (line[0] in ["+", "-"])
-			print buf
+			if DEBUG_VERBOSE:
+				buf += "isHunkStart = %d\n" % (line[0] in ["+", "-"])
+				print buf
 
 		if line[0] in ["+", "-"]:
 			hunk.append(line)
@@ -54,7 +56,6 @@ def parseDiff(l_diff):
 		file.append(hunk)
 
 	if file:
-		#print fileName
 		res[fileName] = file
 
 	return res
@@ -70,38 +71,49 @@ def compareHunks(l_hunk1, l_hunk2):
 		lines_total += 1
 
 	return NonreducedFraction(lines_found, lines_total)
-	
+
 def compareFiles(l_file1, l_file2):
 	res = NonreducedFraction(0, 0)
-		
+
 	for hunk_i in l_file1:
-		cmp_res_max = 0
+		cmp_res_max = NonreducedFraction(0)
 
 		for hunk_j in l_file2:
 			cmp_res_cur = compareHunks(hunk_i, hunk_j)
-			
+
 			if cmp_res_cur == 1:
 				cmp_res_max = cmp_res_cur
 				break
 			elif cmp_res_cur > cmp_res_max:
 				cmp_res_max = cmp_res_cur
-				
+
+		if __debug__ == False:
+			print "%d/%d" % (cmp_res_max._numerator, cmp_res_max._denominator)
+
 		res |= cmp_res_max
-	
+
 	return res
-	
+
 def compareDiffs(d_diff1, d_diff2):
 	res = NonreducedFraction(0, 0)
-	
+
 	for s_filename in d_diff1.keys():
-		res |= compareFiles(d_diff1[s_filename], d_diff2[s_filename])
-		
+		if __debug__ == False:
+			print s_filename
+
+		cmp_res = compareFiles(d_diff1[s_filename], d_diff2[s_filename])
+
+		if __debug__ == False:
+			print "total: %d/%d\n" % (cmp_res._numerator, cmp_res._denominator)
+
+		res |= cmp_res
 	return res
 
 if __name__ == "__main__":
-	for fileName, file in parseDiff(input_lines).items():
-		print "%s: " % fileName
-		for hunk in file:
-			print "".join(hunk)
+	#input_lines = fileinput.input(sys.argv[1:])
+	file1, file2 = sys.argv[1:3]
+	readFile = lambda x: open(x).readlines()
+	diff1, diff2 = parseDiff(readFile(file1)), parseDiff(readFile(file2))
 
-#print parseDiff(input_lines)
+	print compareDiffs(diff1, diff2)
+
