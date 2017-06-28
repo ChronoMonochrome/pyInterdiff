@@ -1,24 +1,18 @@
 #!/usr/bin/python
 
 import fileinput, sys
-from collections import OrderedDict as odict
+from collections import OrderedDict
 from fraction_custom import NonreducedFraction
 
 DEBUG_VERBOSE = 0
 
-def parseDiff(l_diff):
-	res = odict()
+cpdef public object parseDiff(l_diff):
+	res = OrderedDict()
 	file = []
 	hunk = []
 
 	i = 0
 	for line in l_diff:
-		if __debug__ == False:
-			if DEBUG_VERBOSE:
-				buf = ""
-				buf += "line %d: " % i
-				buf += "isFileStart = %d\n" % (line.startswith("diff --git"))
-
 		if line.startswith("diff --git"):
 			if hunk:
 				file.append(hunk)
@@ -30,19 +24,10 @@ def parseDiff(l_diff):
 
 			fileName = line.split(" ")[2][2:]
 
-			if __debug__ == False:
-				if DEBUG_VERBOSE:
-					i += 1
-			else:
-				continue
+			continue
 
 		elif line[:6] in ["--- a/", "+++ b/"]:
 			continue
-
-		if __debug__ == False:
-			if DEBUG_VERBOSE:
-				buf += "isHunkStart = %d\n" % (line[0] in ["+", "-"])
-				print buf
 
 		if line[0] in ["+", "-"]:
 			hunk.append(line)
@@ -60,7 +45,7 @@ def parseDiff(l_diff):
 
 	return res
 
-def compareHunks(l_hunk1, l_hunk2):
+cpdef public object compareHunks(l_hunk1, l_hunk2):
 	if len(l_hunk2) > len(l_hunk1):
 		l_hunk1, l_hunk2 = l_hunk2, l_hunk1
 
@@ -72,7 +57,7 @@ def compareHunks(l_hunk1, l_hunk2):
 
 	return NonreducedFraction(lines_found, lines_total)
 
-def compareFiles(l_file1, l_file2):
+cpdef public object compareFiles(l_file1, l_file2):
 	res = NonreducedFraction(0, 0)
 
 	for hunk_i in l_file1:
@@ -94,10 +79,10 @@ def compareFiles(l_file1, l_file2):
 
 	return res
 
-def countLines(d_diff, s_filename):
+cpdef public int countLines(d_diff, s_filename):
 	return sum([len(i) for i in d_diff[s_filename]])
 
-def compareDiffs(d_diff1, d_diff2):
+cpdef public object compareDiffs(d_diff1, d_diff2):
 	res = NonreducedFraction(0, 0)
 
 	for s_filename in d_diff1.keys():
