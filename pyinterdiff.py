@@ -1,62 +1,95 @@
 #!/usr/bin/python
 
 import fileinput, sys
-from collections import OrderedDict as odict
+import re
+
+from collections import OrderedDict
 from fraction_custom import NonreducedFraction
+from StringIO import StringIO
+from unidiff import PatchSet
 
 DEBUG_VERBOSE = 0
 
-def parseDiff(l_diff):
-	res = odict()
-	file = []
-	hunk = []
+def _parseDiff(s_diff_file):
+	fileStartRegex = "diff --git a/.* b/.*"
+	fileChunks = lambda x: re.split("(%s)" % fileStartRegex, x)[1:]
 
-	i = 0
-	for line in l_diff:
-		if __debug__ == False:
-			if DEBUG_VERBOSE:
-				buf = ""
-				buf += "line %d: " % i
-				buf += "isFileStart = %d\n" % (line.startswith("diff --git"))
+	s_diff = open(s_diff_file, "rb").read()
+	i_chunks = iter(fileChunks(s_diff))
 
-		if line.startswith("diff --git"):
-			if hunk:
-				file.append(hunk)
-				hunk = []
+	res = OrderedDict()
 
-			if file:
-				res[fileName] = file
-				file = []
+	for chunk in i_chunks:
+		assert(re.match(fileStartRegex, chunk))
+		fileName = chunk.split(" ")[2][2:]
+		fileContent = next(i_chunks)
+		res[fileName] = fileContent
 
-			fileName = line.split(" ")[2][2:]
+	return res
+"""
+def _parseDiff(s_diff_file):
+	res = OrderedDict()
 
-			if __debug__ == False:
-				if DEBUG_VERBOSE:
-					i += 1
-			else:
-				continue
+	fileStartRegex = "diff --git a/.* b/.*"
+	fileChunks = lambda x: re.split("(%s)" % fileStartRegex, x)[1:]
 
-		elif line[:6] in ["--- a/", "+++ b/"]:
-			continue
+	s_diff = open(s_diff_file, "rb").read()
+	i_chunks = iter(fileChunks(s_diff))
 
-		if __debug__ == False:
-			if DEBUG_VERBOSE:
-				buf += "isHunkStart = %d\n" % (line[0] in ["+", "-"])
-				print buf
+	chunk = i_chunks.next()
+	assert(re.match(fileStartRegex, chunk))
+	fileName = chunk.split(" ")[2][2:]
+	fileContent = i_chunks.next()
 
-		if line[0] in ["+", "-"]:
-			hunk.append(line)
-		else:
-			if hunk:
-				file.append(hunk)
-				hunk = []
-		i += 1
+	for chunk in i_chunks:
+		res[fileName] = fileContent
 
-	if hunk:
-		file.append(hunk)
+		assert(re.match(fileStartRegex, chunk))
+		fileName = chunk.split(" ")[2][2:]
+		fileContent = next(i_chunks)
 
-	if file:
-		res[fileName] = file
+	return res"""
+
+
+def _parseFile(s_file):
+	hunkStartRegex = r"@@\s-[0-9]+,[0-9]+\s\+[0-9]+,[0-9]+\s@@"
+	chunks = re.split("(%s)" % hunkStartRegex, s_file)[1:]
+	i_chunks = iter(chunks)
+	res = OrderedDict()
+
+	for chunk in i_chunks:
+		assert(re.match(hunkStartRegex, chunk))
+		hunkId = chunk
+		hunkContent = next(i_chunks)
+		res[hunkId] = hunkContent
+
+	return res
+
+def _parseHunk(s_hunk):
+	return [i.group() for i in re.finditer(r"(\+.*)|(\-.*)", s_hunk)]
+
+def parseDiff(s_diff_file):
+	res = OrderedDict()
+	file_tmp = []
+	hunk_tmp = []
+
+	patch = _parseDiff(s_diff_file)
+
+	"""for file in patch:
+		#print file
+		for hunk in file:
+			#print hunk_tmp
+			hunk_tmp = [i.group() for i in hunkLines(hunk.__str__())]
+			file_tmp.append(hunk_tmp)
+		res[file.source_file] = file_tmp"""
+	for file in patch.items():
+		fileName, file = file[0], _parseFile(file[1])
+		#file_tmp = []
+		#for hunk in file.values():
+		#	file_tmp.append(_parseHunk(hunk))
+		res[fileName] = [_parseHunk(hunk) for hunk in file.values()]
+
+		#res[file] = file_tmp
 
 	return res
 
@@ -118,8 +151,10 @@ def compareDiffs(d_diff1, d_diff2):
 if __name__ == "__main__":
 	#input_lines = fileinput.input(sys.argv[1:])
 	file1, file2 = sys.argv[1:3]
-	readFile = lambda x: open(x).readlines()
-	diff1, diff2 = parseDiff(readFile(file1)), parseDiff(readFile(file2))
+
+	openFile = lambda x: StringIO().write(open(x, "rb").read())
+
+	diff1, diff2 = parseDiff(file1), parseDiff(file2)
 
 	print compareDiffs(diff1, diff2)
 
