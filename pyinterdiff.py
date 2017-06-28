@@ -94,6 +94,9 @@ def compareFiles(l_file1, l_file2):
 
 	return res
 
+def countLines(d_diff, s_filename):
+	return sum([len(i) for i in d_diff[s_filename]])
+
 def compareDiffs(d_diff1, d_diff2):
 	res = NonreducedFraction(0, 0)
 
@@ -101,7 +104,10 @@ def compareDiffs(d_diff1, d_diff2):
 		if __debug__ == False:
 			print s_filename
 
-		cmp_res = compareFiles(d_diff1[s_filename], d_diff2[s_filename])
+		if s_filename in d_diff2.keys():
+			cmp_res = compareFiles(d_diff1[s_filename], d_diff2[s_filename])
+		else:
+			cmp_res = NonreducedFraction(0, countLines(d_diff1, s_filename))
 
 		if __debug__ == False:
 			print "total: %d/%d\n" % (cmp_res._numerator, cmp_res._denominator)
